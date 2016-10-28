@@ -30,4 +30,13 @@ var migrations = []migration{
 			height bigint DEFAULT 0 NOT NULL
 		);
 	`},
+	{Name: "2016-11-02.0.utxodb.drop-reservations.sql", SQL: `
+		ALTER TABLE account_utxos DROP COLUMN reservation_id;
+		DROP TABLE reservations;
+		DROP FUNCTION cancel_reservation(integer);
+		DROP FUNCTION create_reservation(text, text, timestamp with time zone, text, OUT integer, OUT boolean, OUT bigint);
+		DROP FUNCTION expire_reservations();
+		DROP FUNCTION reserve_utxo(text, bigint, timestamp with time zone, text);
+		DROP FUNCTION reserve_utxos(text, text, text, bigint, bigint, timestamp with time zone, text);
+	`},
 }
