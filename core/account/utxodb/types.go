@@ -50,11 +50,12 @@ type Source struct {
 }
 
 type Reservation struct {
-	ID        int32
-	AccountID string
-	UTXOs     []*UTXO
-	Change    []Change
-	Expiry    time.Time
+	ID          int32
+	AccountID   string
+	UTXOs       []*UTXO
+	Change      []Change
+	Expiry      time.Time
+	ClientToken *string
 }
 
 type Reserver interface {

@@ -8,18 +8,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/groupcache/singleflight"
-
 	"chain/database/pg"
 	"chain/errors"
 	"chain/protocol/bc"
+	"chain/sync/idempotency"
 )
 
 func NewMemoryReserver(db pg.DB) *MemoryReserver {
 	return &MemoryReserver{
 		db:           db,
 		reservations: make(map[int32]*Reservation),
-		clientTokens: make(map[string]*Reservation),
 		accounts:     make(map[string]*accountReserver),
 	}
 }
@@ -34,11 +32,10 @@ func NewMemoryReserver(db pg.DB) *MemoryReserver {
 type MemoryReserver struct {
 	db                pg.DB
 	nextReservationID int32
-	singleflight      singleflight.Group
+	idempotency       idempotency.Group
 
 	reservationsMu sync.Mutex
 	reservations   map[int32]*Reservation
-	clientTokens   map[string]*Reservation
 
 	accountsMu sync.Mutex
 	accounts   map[string]*accountReserver
@@ -49,29 +46,10 @@ func (mr *MemoryReserver) Reserve(ctx context.Context, source Source, exp time.T
 		return mr.reserve(ctx, source, exp)
 	}
 
-	untypedRes, err := mr.singleflight.Do(*source.ClientToken, func() (interface{}, error) {
-		mr.reservationsMu.Lock()
-		res, ok := mr.clientTokens[*source.ClientToken]
-		if ok {
-			mr.reservationsMu.Unlock()
-			return res, nil
-		}
-		mr.reservationsMu.Unlock()
-
-		res, err := mr.reserve(ctx, source, exp)
-		if err != nil {
-			return res, err
-		}
-
-		mr.reservationsMu.Lock()
-		defer mr.reservationsMu.Unlock()
-		mr.clientTokens[*source.ClientToken] = res
-		return res, err
+	untypedRes, err := mr.idempotency.Once(*source.ClientToken, func() (interface{}, error) {
+		return mr.reserve(ctx, source, exp)
 	})
-	if err != nil {
-		return nil, err
-	}
-	return untypedRes.(*Reservation), nil
+	return untypedRes.(*Reservation), err
 }
 
 func (mr *MemoryReserver) reserve(ctx context.Context, source Source, exp time.Time) (res *Reservation, err error) {
@@ -89,10 +67,11 @@ func (mr *MemoryReserver) reserve(ctx context.Context, source Source, exp time.T
 	}
 
 	res = &Reservation{
-		ID:        rid,
-		AccountID: source.AccountID,
-		UTXOs:     reserved,
-		Expiry:    exp,
+		ID:          rid,
+		AccountID:   source.AccountID,
+		UTXOs:       reserved,
+		Expiry:      exp,
+		ClientToken: source.ClientToken,
 	}
 
 	// Save the successful reservation.
@@ -146,6 +125,9 @@ func (mr *MemoryReserver) Cancel(ctx context.Context, rid int32) error {
 		return fmt.Errorf("couldn't find reservation %d", rid)
 	}
 	mr.account(res.AccountID).cancel(res)
+	if res.ClientToken != nil {
+		mr.idempotency.Forget(*res.ClientToken)
+	}
 	return nil
 }
 
@@ -166,6 +148,9 @@ func (mr *MemoryReserver) ExpireReservations(ctx context.Context) error {
 	// acount reservers.
 	for _, res := range canceled {
 		mr.account(res.AccountID).cancel(res)
+		if res.ClientToken != nil {
+			mr.idempotency.Forget(*res.ClientToken)
+		}
 	}
 
 	// Cleanup any account reservers that don't have anything reserved.
