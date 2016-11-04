@@ -326,8 +326,8 @@ func (ar *accountReserver) reserve(rid uint64, src Source, utxos []*UTXO) ([]*UT
 	}
 
 	if reserved+unavailable < src.Amount {
-		// Even everything was available, this account wouldn't have enough
-		// to satisfy the request.
+		// Even if everything was available, this account wouldn't have
+		// enough to satisfy the request.
 		return nil, 0, ErrInsufficient
 	}
 	if reserved < src.Amount {
