@@ -122,7 +122,8 @@ type spendUTXOAction struct {
 }
 
 func (a *spendUTXOAction) Build(ctx context.Context, maxTime time.Time) (*txbuilder.BuildResult, error) {
-	res, err := a.accounts.utxoDB.ReserveUTXO(ctx, a.TxHash, a.TxOut, a.ClientToken, maxTime)
+	out := bc.Outpoint{Hash: a.TxHash, Index: a.TxOut}
+	res, err := a.accounts.utxoDB.ReserveUTXO(ctx, out, a.ClientToken, maxTime)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +146,7 @@ func (a *spendUTXOAction) Build(ctx context.Context, maxTime time.Time) (*txbuil
 }
 
 // Best-effort cancellation attempt to put in txbuilder.BuildResult.Rollback.
-func canceler(ctx context.Context, m *Manager, rid int32) func() {
+func canceler(ctx context.Context, m *Manager, rid uint64) func() {
 	return func() {
 		err := m.utxoDB.Cancel(ctx, rid)
 		if err != nil {
