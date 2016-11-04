@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -241,7 +242,6 @@ func (re *Reserver) findMatchingUTXOs(ctx context.Context, source Source) ([]*UT
 		SELECT tx_hash, index, amount, control_program_index, control_program, confirmed_in
 		FROM account_utxos a
 		WHERE account_id = $1 AND asset_id = $2
-		ORDER BY amount ASC
 	`
 	var utxos []*UTXO
 	err := pg.ForQueryRows(ctx, re.db, q, source.AccountID, source.AssetID,
@@ -262,6 +262,10 @@ func (re *Reserver) findMatchingUTXOs(ctx context.Context, source Source) ([]*UT
 		})
 	if err != nil {
 		return nil, errors.Wrap(err)
+	}
+	for i := range utxos {
+		j := rand.Intn(i + 1)
+		utxos[i], utxos[j] = utxos[j], utxos[i]
 	}
 	return utxos, nil
 }
