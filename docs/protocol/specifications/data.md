@@ -41,7 +41,6 @@
   * [Program Arguments](#program-arguments)
   * [Asset Version](#asset-version)
   * [Asset ID](#asset-id)
-  * [Asset Definition](#asset-definition)
   * [Retired Asset](#retired-asset)
   * [Transactions Merkle Root](#transactions-merkle-root)
   * [Assets Merkle Root](#assets-merkle-root)
@@ -454,8 +453,6 @@ The control program is a program specifying a predicate for transferring an asse
 
 The issuance program is a [program](#program) specifying a predicate for issuing an asset within an [input issuance commitment](#asset-version-1-issuance-commitment). The asset ID is derived from the issuance program, guaranteeing the authenticity of the issuer.
 
-Issuance programs must start with a [PUSHDATA](vm1.md#pushdata) opcode, followed by the [asset definition](#asset-definition), followed by a [DROP](vm1.md#drop) opcode.
-
 ### Program Arguments
 
 A list of binary strings in a [transaction input witness](#transaction-input-witness) and [block witness](#block-witness) structures. It typically contains signatures and other data to satisfy the predicate specified by the control program of the output referenced by the current input. Program arguments are used also for authenticating *issuance inputs* where the predicate is defined by an issuance program.
@@ -476,12 +473,6 @@ Initial Block ID | sha3-256      | Hash of the first block in this blockchain.
 Asset Version    | varint63      | [Version](#asset-version) of this asset.
 VM Version       | varint63      | [Version of the VM](#vm-version) for the issuance program.
 Issuance Program | varstring31   | Program used in the issuance input.
-
-### Asset Definition
-
-An asset definition is an arbitrary binary string that corresponds to a particular [asset ID](#asset-id). Each asset version may define its own method to declare and commit to asset definitions.
-
-For version 1 assets, asset definitions are included in the issuance program. Issuance programs must start with a [PUSHDATA](vm1.md#pushdata) opcode, followed by the asset definition, followed by a [DROP](vm1.md#drop) opcode. Since the issuance program is part of the string hashed to determine an asset ID, the asset definition for a particular asset ID is immutable.
 
 ### Retired Asset
 
